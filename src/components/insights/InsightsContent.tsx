@@ -78,34 +78,13 @@ const analytics = {
   optimizationOpportunities: 4
 };
 
-export function InsightsContent() {
-  const router = useRouter();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+type InsightsContentProps = {
+  user: { name?: string; email: string };
+};
+
+export function InsightsContent({ user }: InsightsContentProps) {
   const [selectedFilter, setSelectedFilter] = useState('all');
-
-  useState(() => {
-    if (!isAuthenticated()) {
-      router.push('/auth/login');
-      return;
-    }
-
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    } else {
-      router.push('/auth/login');
-    }
-    setIsLoading(false);
-  });
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const [showActionModal, setShowActionModal] = useState<number | null>(null);
 
   if (!user) {
     return null;
@@ -319,7 +298,7 @@ export function InsightsContent() {
                     
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <button className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors font-medium">
+                        <button className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors font-medium" onClick={() => setShowActionModal(insight.id)}>
                           Take Action
                         </button>
                         <button className="text-gray-500 hover:text-gray-700 text-sm">
@@ -358,6 +337,15 @@ export function InsightsContent() {
           </div>
         </div>
       </div>
+      {showActionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 shadow-lg w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Action</h2>
+            <p className="mb-4">(Action for this insight coming soon)</p>
+            <button className="bg-primary text-white px-4 py-2 rounded-lg" onClick={() => setShowActionModal(null)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

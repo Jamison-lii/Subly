@@ -1,9 +1,4 @@
-import { 
-  CreditCardIcon, 
-  CurrencyDollarIcon, 
-  CalendarIcon, 
-  BanknotesIcon 
-} from '@heroicons/react/24/outline';
+import { CreditCardIcon, CurrencyDollarIcon, CalendarIcon, BanknotesIcon } from '@heroicons/react/24/outline';
 
 const summaryData = [
   {

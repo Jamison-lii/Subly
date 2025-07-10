@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signup } from '@/lib/auth';
+import { supabase } from '@/lib/supabaseClient';
 
 export function SignupForm() {
   const router = useRouter();
@@ -28,17 +28,25 @@ export function SignupForm() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
     try {
-      const response = await signup(formData.name, formData.email, formData.password);
-      
-      if (response.success) {
-        // Redirect to dashboard on successful signup
-        router.push('/dashboard');
+      const { data, error: supaError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
+      if (supaError) {
+        setError(supaError.message);
+      } else if (data.user) {
+        // If session is available, redirect to dashboard
+        if (data.session) {
+          router.push('/dashboard');
+        } else {
+          // If no session, redirect to login with a message
+          router.push('/auth/login?signup=success');
+        }
       } else {
-        setError(response.error || 'Failed to create account');
+        setError('Failed to create account');
       }
-    } catch {
+    } catch (err) {
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);

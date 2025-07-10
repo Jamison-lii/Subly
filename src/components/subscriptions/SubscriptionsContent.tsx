@@ -87,35 +87,15 @@ const subscriptions = [
   }
 ];
 
-export function SubscriptionsContent() {
-  const router = useRouter();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+type SubscriptionsContentProps = {
+  user: { name?: string; email: string };
+};
+
+export function SubscriptionsContent({ user }: SubscriptionsContentProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-
-  useState(() => {
-    if (!isAuthenticated()) {
-      router.push('/auth/login');
-      return;
-    }
-
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    } else {
-      router.push('/auth/login');
-    }
-    setIsLoading(false);
-  });
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
 
   if (!user) {
     return null;
@@ -128,6 +108,10 @@ export function SubscriptionsContent() {
   });
 
   const categories = ['all', ...new Set(subscriptions.map(sub => sub.category))];
+
+  const handleDelete = (id: number) => {
+    // setSubscriptions(subscriptions.filter(sub => sub.id !== id)); // This line was removed as per the edit hint
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -142,7 +126,7 @@ export function SubscriptionsContent() {
                 Manage all your recurring subscriptions in one place
               </p>
             </div>
-            <button className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center space-x-2">
+            <button className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center space-x-2" onClick={() => setShowAddModal(true)}>
               <PlusIcon className="h-5 w-5" />
               <span>Add Subscription</span>
             </button>
@@ -299,6 +283,8 @@ export function SubscriptionsContent() {
                       <button className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
                         Cancel
                       </button>
+                      <button className="text-xs text-blue-600 hover:underline" onClick={() => setEditId(subscription.id)}>Edit</button>
+                      <button className="text-xs text-red-600 hover:underline ml-2" onClick={() => handleDelete(subscription.id)}>Delete</button>
                     </div>
                   </div>
                 </div>
@@ -307,6 +293,24 @@ export function SubscriptionsContent() {
           ))}
         </div>
       </div>
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 shadow-lg w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Add Subscription</h2>
+            <p className="mb-4">(Form coming soon)</p>
+            <button className="bg-primary text-white px-4 py-2 rounded-lg" onClick={() => setShowAddModal(false)}>Close</button>
+          </div>
+        </div>
+      )}
+      {editId && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 shadow-lg w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Edit Subscription</h2>
+            <p className="mb-4">(Edit form coming soon)</p>
+            <button className="bg-primary text-white px-4 py-2 rounded-lg" onClick={() => setEditId(null)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

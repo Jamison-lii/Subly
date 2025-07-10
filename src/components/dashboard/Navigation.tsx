@@ -47,7 +47,7 @@ export function Navigation() {
               Settings
             </Link>
             <button
-              onClick={handleLogout}
+              onClick={() => { localStorage.removeItem('user'); router.push('/auth/login'); }}
               className="text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium"
             >
               Logout

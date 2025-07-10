@@ -10,11 +10,13 @@ import {
   CreditCardIcon, 
   ShieldCheckIcon
 } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 
-export function SettingsContent() {
-  const router = useRouter();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+type SettingsContentProps = {
+  user: { name?: string; email: string };
+};
+
+export function SettingsContent({ user }: SettingsContentProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState({
     email: true,
@@ -23,29 +25,7 @@ export function SettingsContent() {
   });
   const [currency, setCurrency] = useState('USD');
   const [language, setLanguage] = useState('English');
-
-  useState(() => {
-    if (!isAuthenticated()) {
-      router.push('/auth/login');
-      return;
-    }
-
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    } else {
-      router.push('/auth/login');
-    }
-    setIsLoading(false);
-  });
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const [showSaveToast, setShowSaveToast] = useState(false);
 
   if (!user) {
     return null;
@@ -67,22 +47,22 @@ export function SettingsContent() {
           {/* Settings Navigation */}
           <div className="lg:col-span-1">
             <nav className="space-y-1">
-              <a href="#account" className="flex items-center px-4 py-3 text-sm font-medium text-primary bg-primary/10 rounded-lg">
+              <Link href="#account" className="flex items-center px-4 py-3 text-sm font-medium text-primary bg-primary/10 rounded-lg">
                 <UserIcon className="h-5 w-5 mr-3" />
                 Account
-              </a>
-              <a href="#notifications" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
+              </Link>
+              <Link href="#notifications" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
                 <BellIcon className="h-5 w-5 mr-3" />
                 Notifications
-              </a>
-              <a href="#billing" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
+              </Link>
+              <Link href="#billing" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
                 <CreditCardIcon className="h-5 w-5 mr-3" />
                 Billing
-              </a>
-              <a href="#security" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
+              </Link>
+              <Link href="#security" className="flex items-center px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg">
                 <ShieldCheckIcon className="h-5 w-5 mr-3" />
                 Security
-              </a>
+              </Link>
             </nav>
           </div>
 
@@ -250,13 +230,14 @@ export function SettingsContent() {
 
             {/* Save Button */}
             <div className="flex justify-end">
-              <button className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
-                Save Changes
-              </button>
+              <button className="bg-primary text-white px-4 py-2 rounded-lg" onClick={() => setShowSaveToast(true)}>Save</button>
             </div>
           </div>
         </div>
       </div>
+      {showSaveToast && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">Settings saved!</div>
+      )}
     </div>
   );
 } 
