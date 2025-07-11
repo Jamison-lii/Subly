@@ -7,7 +7,7 @@ import { InsightsPanel } from './InsightsPanel';
 import { BudgetWidget } from './BudgetWidget';
 
 type DashboardContentProps = {
-  user: { name?: string; email: string };
+  user: { id: string; name?: string; email: string };
 };
 
 export function DashboardContent({ user }: DashboardContentProps) {
@@ -30,7 +30,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
         </div>
         {/* Top Summary Cards */}
         <div className="mb-8">
-          <OverviewCards />
+          <OverviewCards user={user} />
         </div>
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -41,18 +41,18 @@ export function DashboardContent({ user }: DashboardContentProps) {
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 Upcoming Charges
               </h2>
-              <UpcomingPayments />
+              <UpcomingPayments user={user} />
             </div>
           </div>
           {/* Right Column - AI Insights & Budget */}
           <div className="space-y-8">
             {/* AI Insights Panel */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <InsightsPanel />
+              <InsightsPanel user={user} />
             </div>
             {/* Budget Widget */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <BudgetWidget />
+              <BudgetWidget user={user} />
             </div>
           </div>
         </div>

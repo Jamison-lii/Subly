@@ -1,9 +1,9 @@
 "use client";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthProvider';
-import { InsightsListContent } from '@/components/insights/InsightsListContent';
+import { BudgetsContent } from '@/components/budgets/BudgetsContent';
 
-export default function InsightsPage() {
+export default function BudgetsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
 
@@ -20,5 +20,5 @@ export default function InsightsPage() {
     return null;
   }
 
-  return <InsightsListContent user={user} />;
+  return <BudgetsContent user={user} />;
 } 

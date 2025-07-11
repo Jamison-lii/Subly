@@ -1,15 +1,86 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { ChartPieIcon } from '@heroicons/react/24/outline';
 
-export function BudgetWidget() {
-  const percentage = 22; // 22% of monthly income
-  const monthlyIncome = 4000; // Example monthly income
-  const recurringSpend = 890; // Current recurring spend
+interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  billing_cycle: string;
+  next_payment: string;
+  status: string;
+}
+
+type BudgetWidgetProps = {
+  user: { id: string; name?: string; email: string };
+};
+
+export function BudgetWidget({ user }: BudgetWidgetProps) {
+  const [monthlySpend, setMonthlySpend] = useState(0);
+  const [loading, setLoading] = useState(true);
+  
+  // Default monthly income (could be made configurable later)
+  const monthlyIncome = 4000;
+  
+  useEffect(() => {
+    const fetchBudgetData = async () => {
+      setLoading(true);
+      
+      // Fetch all active subscriptions
+      const { data: subscriptions, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (error) {
+        console.error('Error fetching subscriptions for budget:', error);
+        setLoading(false);
+        return;
+      }
+
+      const subs = subscriptions || [];
+      
+      // Calculate total monthly spend
+      const totalMonthlySpend = subs.reduce((total, sub) => {
+        // Convert yearly to monthly for calculation
+        if (sub.billing_cycle === 'Yearly') {
+          return total + (sub.amount / 12);
+        }
+        return total + sub.amount;
+      }, 0);
+
+      setMonthlySpend(totalMonthlySpend);
+      setLoading(false);
+    };
+
+    fetchBudgetData();
+  }, [user.id]);
+
+  const percentage = Math.round((monthlySpend / monthlyIncome) * 100);
   
   // Calculate the circumference and stroke-dasharray for the progress circle
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
   const strokeDasharray = circumference;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-2">
+          <ChartPieIcon className="h-6 w-6 text-primary" />
+          <h3 className="text-lg font-semibold text-gray-900">Budget Health</h3>
+        </div>
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -66,7 +137,7 @@ export function BudgetWidget() {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Recurring Spend</span>
             <span className="text-sm font-semibold text-gray-900">
-              ${recurringSpend.toLocaleString()}
+              ${monthlySpend.toFixed(2)}
             </span>
           </div>
         </div>

@@ -1,314 +1,263 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getCurrentUser, isAuthenticated } from '@/lib/auth';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { Navigation } from '@/components/dashboard/Navigation';
-import { PlusIcon, FunnelIcon, MagnifyingGlassIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
-const subscriptions = [
-  {
-    id: 1,
-    name: 'Netflix',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg',
-    amount: 9.99,
-    billingCycle: 'Monthly',
-    nextBilling: 'June 25, 2024',
-    category: 'Entertainment',
-    status: 'active',
-    usage: 'Heavy',
-    lastUsed: '2 days ago',
-    color: 'bg-red-500'
-  },
-  {
-    id: 2,
-    name: 'Spotify Premium',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg',
-    amount: 12.99,
-    billingCycle: 'Monthly',
-    nextBilling: 'June 27, 2024',
-    category: 'Music',
-    status: 'active',
-    usage: 'Light',
-    lastUsed: '2 weeks ago',
-    color: 'bg-green-500'
-  },
-  {
-    id: 3,
-    name: 'Adobe Creative Cloud',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/7/7b/Adobe_Systems_logo_and_wordmark.svg',
-    amount: 52.99,
-    billingCycle: 'Monthly',
-    nextBilling: 'June 30, 2024',
-    category: 'Productivity',
-    status: 'active',
-    usage: 'Medium',
-    lastUsed: '1 day ago',
-    color: 'bg-orange-500'
-  },
-  {
-    id: 4,
-    name: 'GitHub Pro',
-    logo: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png',
-    amount: 4.99,
-    billingCycle: 'Monthly',
-    nextBilling: 'July 2, 2024',
-    category: 'Development',
-    status: 'active',
-    usage: 'Heavy',
-    lastUsed: 'Today',
-    color: 'bg-gray-800'
-  },
-  {
-    id: 5,
-    name: 'Notion Personal',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png',
-    amount: 4.99,
-    billingCycle: 'Monthly',
-    nextBilling: 'July 5, 2024',
-    category: 'Productivity',
-    status: 'active',
-    usage: 'Medium',
-    lastUsed: '3 days ago',
-    color: 'bg-black'
-  },
-  {
-    id: 6,
-    name: 'Hulu',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e4/Hulu_Logo.svg',
-    amount: 7.99,
-    billingCycle: 'Monthly',
-    nextBilling: 'June 28, 2024',
-    category: 'Entertainment',
-    status: 'active',
-    usage: 'Light',
-    lastUsed: '1 week ago',
-    color: 'bg-green-600'
-  }
-];
+// Subscription type
+interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  billing_cycle: string;
+  next_payment: string;
+  status: string;
+}
 
 type SubscriptionsContentProps = {
-  user: { name?: string; email: string };
+  user: { id: string; name?: string; email: string };
 };
 
 export function SubscriptionsContent({ user }: SubscriptionsContentProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-
-  if (!user) {
-    return null;
-  }
-
-  const filteredSubscriptions = subscriptions.filter(sub => {
-    const matchesSearch = sub.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || sub.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+  const [form, setForm] = useState({
+    name: '',
+    amount: '',
+    billing_cycle: 'Monthly',
+    next_payment: '',
   });
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const categories = ['all', ...new Set(subscriptions.map(sub => sub.category))];
+  // Fetch subscriptions on mount
+  useEffect(() => {
+    const fetchSubscriptions = async () => {
+      setLoading(true);
+      setError('');
+      console.log('Fetching subscriptions for user:', user.id);
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('next_payment', { ascending: true });
+      console.log('Supabase response:', { data, error });
+      if (error) {
+        console.error('Supabase error:', error);
+        setError(error.message);
+      }
+      setSubscriptions(data || []);
+      setLoading(false);
+    };
+    fetchSubscriptions();
+  }, [user.id]);
 
-  const handleDelete = (id: number) => {
-    // setSubscriptions(subscriptions.filter(sub => sub.id !== id)); // This line was removed as per the edit hint
+  // Toast auto-hide
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
+
+  // Add subscription
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdding(true);
+    setError('');
+    const newSub = {
+      user_id: user.id,
+      name: form.name,
+      amount: parseFloat(form.amount),
+      currency: 'USD',
+      billing_cycle: form.billing_cycle,
+      next_payment: form.next_payment,
+      status: 'active',
+    };
+    // Optimistic UI
+    const tempId = 'temp-' + Math.random();
+    setSubscriptions((subs) => [
+      { ...newSub, id: tempId },
+      ...subs,
+    ]);
+    setShowAddModal(false);
+    setForm({ name: '', amount: '', billing_cycle: 'Monthly', next_payment: '' });
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .insert([newSub])
+      .select()
+      .single();
+    setAdding(false);
+    if (error) {
+      setToast('Failed to add subscription');
+      setSubscriptions((subs) => subs.filter((s) => s.id !== tempId));
+    } else {
+      setToast('Subscription added');
+      setSubscriptions((subs) => [data, ...subs.filter((s) => s.id !== tempId)]);
+    }
+  };
+
+  // Delete subscription
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    // Optimistic UI
+    const prev = subscriptions;
+    setSubscriptions((subs) => subs.filter((s) => s.id !== id));
+    const { error } = await supabase
+      .from('subscriptions')
+      .delete()
+      .eq('id', id);
+    setDeletingId(null);
+    if (error) {
+      setToast('Failed to delete');
+      setSubscriptions(prev); // revert
+    } else {
+      setToast('Deleted');
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Subscriptions</h1>
-              <p className="text-gray-600 mt-2">
-                Manage all your recurring subscriptions in one place
-              </p>
-            </div>
-            <button className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center space-x-2" onClick={() => setShowAddModal(true)}>
-              <PlusIcon className="h-5 w-5" />
-              <span>Add Subscription</span>
-            </button>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Subscriptions</h1>
+            <p className="text-gray-600 mt-2">Manage your recurring subscriptions</p>
           </div>
+          <button
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center space-x-2"
+            onClick={() => setShowAddModal(true)}
+          >
+            <PlusIcon className="h-5 w-5" />
+            <span>Add Subscription</span>
+          </button>
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Subscriptions</p>
-                <p className="text-2xl font-bold text-gray-900">{subscriptions.length}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <div className="w-6 h-6 bg-blue-500 rounded"></div>
-              </div>
-            </div>
+        {error && <div className="text-red-600 mb-4">{error}</div>}
+        {loading ? (
+          <div className="flex justify-center items-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Monthly Spend</p>
-                <p className="text-2xl font-bold text-gray-900">$89.94</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <div className="w-6 h-6 bg-green-500 rounded"></div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Next Payment</p>
-                <p className="text-2xl font-bold text-gray-900">$9.99</p>
-              </div>
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <div className="w-6 h-6 bg-orange-500 rounded"></div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Savings Potential</p>
-                <p className="text-2xl font-bold text-green-600">$47.99</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <div className="w-6 h-6 bg-green-500 rounded"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search subscriptions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <FunnelIcon className="h-5 w-5 text-gray-400" />
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                {categories.map(category => (
-                  <option key={category} value={category}>
-                    {category === 'all' ? 'All Categories' : category}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Subscriptions List */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredSubscriptions.map((subscription) => (
-            <div
-              key={subscription.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 group"
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-12 h-12 rounded-xl ${subscription.color} flex items-center justify-center shadow-lg`}>
-                      <img 
-                        src={subscription.logo} 
-                        alt={subscription.name}
-                        className="w-8 h-8 object-contain"
-                      />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {subscriptions.length === 0 ? (
+              <div className="col-span-full text-center text-gray-500">No subscriptions found.</div>
+            ) : (
+              subscriptions.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 p-6 flex flex-col justify-between"
+                >
+                  <div>
+                    <h3 className="font-semibold text-gray-900 text-lg mb-1">{sub.name}</h3>
+                    <div className="text-sm text-gray-600 mb-2">{sub.billing_cycle}</div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-600">Amount</span>
+                      <span className="font-semibold text-gray-900">${sub.amount} {sub.currency}</span>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{subscription.name}</h3>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                        {subscription.category}
-                      </span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-600">Next Payment</span>
+                      <span className="text-gray-900">{sub.next_payment ? new Date(sub.next_payment).toLocaleDateString() : '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-600">Status</span>
+                      <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">{sub.status}</span>
                     </div>
                   </div>
-                  
-                  <button className="text-gray-400 hover:text-gray-600 p-1">
-                    <EllipsisVerticalIcon className="h-5 w-5" />
+                  <button
+                    className="mt-4 flex items-center justify-center text-red-600 hover:text-red-800"
+                    onClick={() => handleDelete(sub.id)}
+                    disabled={deletingId === sub.id}
+                    title="Delete"
+                  >
+                    <TrashIcon className="h-5 w-5 mr-1" />
+                    {deletingId === sub.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Amount</span>
-                    <span className="font-semibold text-gray-900">${subscription.amount}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Billing</span>
-                    <span className="text-sm text-gray-900">{subscription.billingCycle}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Next Payment</span>
-                    <span className="text-sm text-gray-900">{subscription.nextBilling}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Usage</span>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      subscription.usage === 'Heavy' ? 'bg-green-100 text-green-700' :
-                      subscription.usage === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {subscription.usage}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Last used: {subscription.lastUsed}</span>
-                    <div className="flex items-center space-x-2">
-                      <button className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors">
-                        Manage
-                      </button>
-                      <button className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
-                        Cancel
-                      </button>
-                      <button className="text-xs text-blue-600 hover:underline" onClick={() => setEditId(subscription.id)}>Edit</button>
-                      <button className="text-xs text-red-600 hover:underline ml-2" onClick={() => handleDelete(subscription.id)}>Delete</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
+      {/* Add Subscription Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-8 shadow-lg w-full max-w-md">
+          <div className="bg-white rounded-xl p-8 shadow-lg w-full max-w-md relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowAddModal(false)}
+              title="Close"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
             <h2 className="text-xl font-bold mb-4">Add Subscription</h2>
-            <p className="mb-4">(Form coming soon)</p>
-            <button className="bg-primary text-white px-4 py-2 rounded-lg" onClick={() => setShowAddModal(false)}>Close</button>
+            <form onSubmit={handleAdd} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name</label>
+                <input
+                  type="text"
+                  className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Amount (USD)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
+                  value={form.amount}
+                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Billing Cycle</label>
+                <select
+                  className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
+                  value={form.billing_cycle}
+                  onChange={e => setForm(f => ({ ...f, billing_cycle: e.target.value }))}
+                  required
+                >
+                  <option value="Monthly">Monthly</option>
+                  <option value="Yearly">Yearly</option>
+                  <option value="Weekly">Weekly</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Next Payment Date</label>
+                <input
+                  type="date"
+                  className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
+                  value={form.next_payment}
+                  onChange={e => setForm(f => ({ ...f, next_payment: e.target.value }))}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 mt-2"
+                disabled={adding}
+              >
+                {adding ? 'Adding...' : 'Add Subscription'}
+              </button>
+            </form>
           </div>
         </div>
       )}
-      {editId && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-8 shadow-lg w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Edit Subscription</h2>
-            <p className="mb-4">(Edit form coming soon)</p>
-            <button className="bg-primary text-white px-4 py-2 rounded-lg" onClick={() => setEditId(null)}>Close</button>
-          </div>
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          {toast}
         </div>
       )}
     </div>

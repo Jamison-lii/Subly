@@ -41,6 +41,12 @@ export function Navigation() {
               Insights
             </Link>
             <Link 
+              href="/budgets" 
+              className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
+            >
+              Budgets
+            </Link>
+            <Link 
               href="/settings" 
               className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
             >
